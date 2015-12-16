@@ -40,14 +40,17 @@ $(LIBXG): $(LIBVG)
 	cd vg && $(MAKE) xg/libxg.a
 
 # Needs XG to be built for the protobuf headers
-main.o: snpmerge.h $(LIBXG)
+main.o: main.cpp snpmerge.h graphvariant.h $(LIBXG)
 	$(CXX) main.cpp -c $(CXXFLAGS)
 
-snpmerge.o: snpmerge.h snpmerge.cpp
+graphvariant.o: graphvariant.h graphvariant.cpp
+	$(CXX) graphvariant.cpp -c $(CXXFLAGS)
+
+snpmerge.o: snpmerge.h snpmerge.cpp graphvariant.h
 	$(CXX) snpmerge.cpp -c $(CXXFLAGS)
 
-snpMerge: main.o snpmerge.o $(VGLIBS)
-	$(CXX) main.o snpmerge.o $(VGLIBS) -o snpMerge $(CXXFLAGS) $(LDFLAGS)
+snpMerge: main.o snpmerge.o graphvariant.o $(VGLIBS)
+	$(CXX) main.o snpmerge.o graphvariant.o $(VGLIBS) -o snpMerge $(CXXFLAGS) $(LDFLAGS)
 
 clean:
 	rm -f snpMerge

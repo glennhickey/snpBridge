@@ -11,6 +11,8 @@
 #include "vg/vg.hpp"
 #include "Variant.h"
 
+#include "snpmerge.h"
+
 using namespace vcflib;
 using namespace vg;
 using namespace std;
@@ -27,7 +29,9 @@ void help_main(char** argv)
        << "options:" << endl
        << "    -h, --help          print this help message" << endl
        << "    -w, --window-size N maximum distance between adjacent snps to be"
-       << " merged (default=" << DefaultWindowSize << ")" << endl;
+       << " merged (default=" << DefaultWindowSize << ")" << endl
+       << "    -o, --offset N      vcf-coordinate of first position in vg path"
+       << " (default=1)" << endl;
 }
 
 int main(int argc, char** argv) {
@@ -39,25 +43,30 @@ int main(int argc, char** argv) {
   }
 
   int windowSize = DefaultWindowSize;
+  int offset = 1;
     
   optind = 1; // Start at first real argument
   bool optionsRemaining = true;
   while(optionsRemaining) {
     static struct option longOptions[] = {
       {"window-size", required_argument, 0, 'w'},
+      {"offset", required_argument, 0, 'o'},
       {"help", no_argument, 0, 'h'},
       {0, 0, 0, 0}
     };
 
     int optionIndex = 0;
 
-    switch(getopt_long(argc, argv, "w:h", longOptions, &optionIndex)) {
+    switch(getopt_long(argc, argv, "w:o:h", longOptions, &optionIndex)) {
       // Option value is in global optarg
     case -1:
       optionsRemaining = false;
       break;
-    case 'w': // Set the kmer size
+    case 'w': 
       windowSize = atol(optarg);
+      break;
+    case 'o':
+      offset = atol(optarg);
       break;
     case 'h': // When the user asks for help
       help_main(argv);
@@ -68,7 +77,7 @@ int main(int argc, char** argv) {
       exit(1);
     }
   }
-    
+
   if(argc - optind < 2) {
     // We don't have two positional arguments
     // Print the help
@@ -87,10 +96,16 @@ int main(int argc, char** argv) {
     exit(1);
   }
   VG vg(vgStream);
+  cerr << "vg open" << endl;
 
   // Open the vcf file
   VariantCallFile vcf;
   vcf.open(vcfFile);
+  cerr << "vcf open" << endl;
+
+  SNPMerge snpMerge;
+
+  snpMerge.processGraph(&vg, &vcf, offset);
     
   return 0;
 }

@@ -12,11 +12,12 @@
 #include <limits>
 #include <map>
 #include <stdexcept>
-
 #include <sstream>
 
 #include "vg/vg.hpp"
 #include "Variant.h"
+
+#include "graphvariant.h"
 
 /** 
 Let's say we have two adjacent snps, along with phasing information. 
@@ -70,6 +71,13 @@ public:
 
    SNPMerge();
    ~SNPMerge();
+
+   void processGraph(vg::VG* vg, vcflib::VariantCallFile* vcf, int offset);
+
+protected:
+
+   GraphVariant _gv1;
+   GraphVariant _gv2; 
 };
 
 #endif
