@@ -91,10 +91,10 @@ void GraphVariant::loadVariant(VG* vg, Variant& var)
   // the alleles
   loadAlleles();
 }
-#define debug 1
+
 void GraphVariant::loadAlleles()
 {
-#ifdef debug
+#ifdef DEBUG
   cerr << "1st vg ref node " << _mappingIt->position().node_id()
        << " _var position " << _var.position << " ref "
        << _var.alleles[0] << endl;
@@ -125,7 +125,7 @@ void GraphVariant::loadAlleles()
     throw runtime_error(ss.str());
   }
 
-#ifdef debug
+#ifdef DEBUG
   cerr << "VCF: " << _var.sequenceName << "\t" << (_var.position - _offset)
        << "\t" << _var.alleles[0] << " VG:";
   for (auto& n : _graphAlleles[0])
@@ -212,6 +212,26 @@ GraphVariant::Cat GraphVariant::varCat(Variant& var) const
   }
   
   return REFONLY;
+}
+
+int GraphVariant::getNumAlleles() const
+{
+  return _var.alleles.size();
+}
+
+const string& GraphVariant::getVCFAllele(int i) const
+{
+  return _var.alleles[i];
+}
+
+const list<Node*>& GraphVariant::getGraphAllele(int i) const
+{
+  return _graphAlleles[i];
+}
+
+const Variant& GraphVariant::getVariant() const
+{
+  return _var;
 }
 
 bool GraphVariant::istreq(const string& s1, const string& s2,

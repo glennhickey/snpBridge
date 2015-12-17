@@ -3,7 +3,8 @@
 
 CXX=g++
 INCLUDES=-Ivg -Ivg/gssw/src -Ivg/protobuf/build/include -Ivg/gcsa2 -Ivg/cpp -Ivg/sdsl-lite/install/include -Ivg/vcflib/src -Ivg/vcflib -Ivg/vcflib/tabixpp/htslib -Ivg/progress_bar -Ivg/sparsehash/build/include -Ivg/lru_cache -Ivg/fastahack -Ivg/xg -Ivg/xg/sdsl-lite/build/include -Ivg/rocksdb/include
-CXXFLAGS=-O3 -std=c++11 -fopenmp -g $(INCLUDES)
+#CXXFLAGS=-O3 -std=c++11 -fopenmp -g $(INCLUDES)
+CXXFLAGS=-O0 -std=c++11 -fopenmp -g $(INCLUDES) -DDEBUG
 LDSEARCH=-Lvg -Lvg/xg -Lvg/xg/sdsl-lite/build/lib -Lvg/xg/sdsl-lite/build/external/libdivsufsort/lib
 LDFLAGS=-lm -lpthread -lz -lbz2 -lsnappy -ldivsufsort -ljansson $(LDSEARCH)
 LIBVG=vg/libvg.a

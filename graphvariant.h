@@ -50,11 +50,13 @@ public:
    int getNumAlleles() const;
 
    /** get vcf allele by number */
-   const string& getVCFAllele(int i) const;
+   const std::string& getVCFAllele(int i) const;
 
    /** get vg allele by number */
    const std::list<vg::Node*>& getGraphAllele(int i) const;
 
+   const vcflib::Variant& getVariant() const;
+   
    /** what kind of variant.  */
    Cat varCat(vcflib::Variant& var) const;
 
@@ -63,6 +65,7 @@ public:
     * returns false*/
    static bool istreq(const std::string& s1, const std::string& s2,
                       int o1 = 0, int o2 = 0, int len = -1);
+
 
 protected:
 
