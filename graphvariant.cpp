@@ -258,9 +258,6 @@ void GraphVariant::getReferencePathTo(const GraphVariant& other,
   }
 
   // no way we should get to end since other is between it and us
-  cerr << "head " <<  _graphAlleles[0].back()->id()
-       << " it  " <<  _mappingIt->position().node_id()
-       << " tail " <<  otherHead->id() << endl;
   assert(i != _path->end());
 }
 

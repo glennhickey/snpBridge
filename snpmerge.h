@@ -75,7 +75,8 @@ public:
 
    /** iterate through adjacent snps and do merging, in place, in the 
     * vg graph */
-   void processGraph(vg::VG* vg, vcflib::VariantCallFile* vcf, int offset);
+   void processGraph(vg::VG* vg, vcflib::VariantCallFile* vcf, int offset,
+                     int windowSize);
 
 
 protected:
@@ -105,6 +106,10 @@ protected:
    /** Resize and set matrix to 0 */
    void initLinkCounts(vcflib::Variant& v1,
                        vcflib::Variant& v2);
+
+   /** Check length of reference path */
+   int vgRefLength(vcflib::Variant& var) const;
+   
 protected:
 
    vg::VG* _vg;

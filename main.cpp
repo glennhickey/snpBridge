@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
 
   // Process all adjacant variants my merging them in the graph
   // when possible
-  snpMerge.processGraph(&vg, &vcf, offset);
+  snpMerge.processGraph(&vg, &vcf, offset, windowSize);
 
   // Above inserts new nodes between existing nodes.  So we revise ids
   // to be sorted

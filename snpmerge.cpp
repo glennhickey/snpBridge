@@ -21,7 +21,8 @@ SNPMerge::~SNPMerge()
 {
 }
 
-void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset)
+void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
+                            int windowSize)
 {
   _vg = vg;
   _gv1.init(offset);
@@ -37,67 +38,85 @@ void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset)
   }
   _gv1.loadVariant(vg, var1);
 
-  while (vcf->getNextVariant(var2))
+  int graphLen = vgRefLength(var1);
+
+  for (; vcf->getNextVariant(var2); swap(var1, var2), swap(_gv1, _gv2))
   {
+    if (var1.position < offset)
+    {
+      // fast forward until we reach begnning of vg
+      continue;
+    }
+    if (var2.position >= offset + graphLen)
+    {
+      // stop after end of vg
+      break;
+    }
+    if (var2.position - (var1.position + var1.alleles[0].length() - 1) >
+        windowSize)
+    {
+      // skip because further than window size
+      continue;
+    }
+
     _gv2.loadVariant(vg, var2);
 
-    cerr << "v1 " << var1.sequenceName << " " << var1.position
+#ifdef DEBUG
+    cerr << "\n* v1 " << var1.sequenceName << " " << var1.position
          << " v2 " << var2.sequenceName << " " << var2.position << endl;
-    
+#endif
+
     if (_gv1.overlaps(_gv2))
     {
       cerr << "Skipping adjacent variants at " << var1.position << " and "
            << var2.position << " because they overlap" << endl;
+      continue;
     }
-    else
+
+    computeLinkCounts(var1, var2);
+
+    for (int a1 = 1; a1 < var1.alleles.size(); ++a1)
     {
-      computeLinkCounts(var1, var2);
-
-      for (int a1 = 1; a1 < var1.alleles.size(); ++a1)
+      for (int a2 = 1; a2 < var2.alleles.size(); ++a2)
       {
-        for (int a2 = 1; a2 < var2.alleles.size(); ++a2)
-        {
-          // note can probably get what we need by calling once instead
-          // of in loop....
-          Phase phase = phaseRelation(var1, a1, var2, a2);
+        // note can probably get what we need by calling once instead
+        // of in loop....
+        Phase phase = phaseRelation(var1, a1, var2, a2);
 
-          if (phase == GT_AND)
-          {
-            makeBridge(a1, a2);
-            // we can get away with breaking here (and below) because results
-            // mutually exclusive (see simplifying assumption in
-            // phaseRelation()).  So as soon as we see a GT_AND or
-            // GT_XOR, then everything else must be GT_OTHER
-            break;
-          }
-          else if (phase == GT_XOR)
-          {
-            makeBridge(a1, 0);
-            break;
-          }
-          else
-          {
+        if (phase == GT_AND)
+        {
+          makeBridge(a1, a2);
+          // we can get away with breaking here (and below) because results
+          // mutually exclusive (see simplifying assumption in
+          // phaseRelation()).  So as soon as we see a GT_AND or
+          // GT_XOR, then everything else must be GT_OTHER
+          break;
+        }
+        else if (phase == GT_XOR)
+        {
+          makeBridge(a1, 0);
+          break;
+        }
+        else
+        {
 #ifdef DEBUG
-            cerr << a1 << " OTHER " << a2 << " detected at "
-                 << _gv1.getVariant().position << " ";
-            for (int i = 0; i < _linkCounts.size(); ++i)
+          cerr << a1 << " OTHER " << a2 << " detected at "
+               << _gv1.getVariant().position << " ";
+          for (int i = 0; i < _linkCounts.size(); ++i)
+          {
+            cerr << "(";
+            for (int j = 0; j < _linkCounts[i].size(); ++j)
             {
-              cerr << "(";
-              for (int j = 0; j < _linkCounts[i].size(); ++j)
-              {
-                cerr << _linkCounts[i][j] << ",";
-              }
-              cerr << ") ";
+              cerr << _linkCounts[i][j] << ",";
             }
-            cerr << endl;
-#endif
+            cerr << ") ";
           }
+          cerr << endl;
+#endif
         }
       }
     }
-    swap(var1, var2);
-    swap(_gv1, _gv2);
-  }  
+  }
 }
 
 void SNPMerge::makeBridge(int allele1, int allele2)
@@ -118,26 +137,44 @@ void SNPMerge::makeBridge(int allele1, int allele2)
 #endif
 
   Node* node1 = _gv1.getGraphAllele(allele1).back();
-  Node* node2 = _gv1.getGraphAllele(allele2).back();
+  Node* node2 = _gv2.getGraphAllele(allele2).front();
 
-  vector<pair<int64_t, bool> >& outEdges1 = _vg->edges_on_end[node1->id()];
-  vector<pair<int64_t, bool> >& inEdges2 = _vg->edges_on_start[node2->id()];
+  // note we don't use references here because they get altered by
+  // calls to create and destroy.
+  vector<pair<int64_t, bool> > outEdges1 = _vg->edges_on_end[node1->id()];
+  vector<pair<int64_t, bool> > inEdges2 = _vg->edges_on_start[node2->id()];
 
   // make sure there's no other way out of node1 but the
   // new bridge that we'll add
-  for (auto& p : outEdges1)
+  for (auto p : outEdges1)
   {
-    _vg->destroy_edge(NodeSide(node1->id(), true),
-                      NodeSide(p.first, p.second));
+    cerr << "destroy1 " << node1->id() << " " << true << ", " << p.first << " " << p.second << endl; 
+    Edge* edge = _vg->get_edge(NodeSide(node1->id(), true),
+                               NodeSide(p.first, p.second));
+    assert(edge != NULL);
+    _vg->destroy_edge(edge);
   }
-  if (allele2 > 0)
+  
+  // if dealting with an alt-alt case, make sure no other
+  // way into second alt than the new bridge we'll add
+  // (for alt-ref case, just delete any edge from prev alt)
+  if (allele2 != 0)
   {
-    // if dealting with an alt-alt case, make sure no other
-    // way into second alt than the new bridge we'll add
-    for (auto& p : inEdges2)
+    for (auto p : inEdges2)
     {
-      _vg->destroy_edge(NodeSide(p.first, p.second),
-                        NodeSide(node2->id(), false));
+      cerr << "destroy2 " << p.first << " " << !p.second << ", " << node2->id() << " " << false << endl;
+      Edge* edge = _vg->get_edge(NodeSide(p.first, !p.second),
+                                 NodeSide(node2->id(), false));
+      if (p.first == node1->id())
+      {
+        // should have been deleted above
+        assert(edge == NULL);
+      }
+      else
+      {
+        assert(edge != NULL);
+        _vg->destroy_edge(edge);
+      }
     }
   }
 
@@ -152,6 +189,7 @@ void SNPMerge::makeBridge(int allele1, int allele2)
   if (refPath.empty())
   {
     _vg->create_edge(node1, node2, false, false);
+    cerr << "create " << node1->id() << ", " << node2->id() << endl;
   }
   // otherwise, make a copy of ref path and stick that in between
   else
@@ -164,6 +202,7 @@ void SNPMerge::makeBridge(int allele1, int allele2)
       prev = cpyNode;
     }
     _vg->create_edge(prev, node2, false, false);
+    cerr << "create " << prev->id() << ", " << node2->id() << endl;
   }
 }
 
@@ -333,4 +372,37 @@ void SNPMerge::initLinkCounts(Variant& v1,
       _linkCounts[i].assign(v2.alleles.size(), 0);
     }
   }  
+}
+
+int SNPMerge::vgRefLength(Variant& var) const
+{
+  // duplicating some code from the built in traversal of graphvariant,
+  // but it's nice to have path length at outset to make scope checking
+  // simpler (to relax assumption that vg contains whole vcf). 
+  if (_vg->paths.has_path(var.sequenceName) == false)
+  {
+    stringstream ss;
+    ss << "Unable to find path for " << var.sequenceName << " in vg file";
+    throw runtime_error(ss.str());
+  }
+  int len = 0;
+  list<Mapping>& path = _vg->paths.get_path(var.sequenceName);
+  for (auto& mapping : path)
+  {
+    if (mapping.is_reverse() == true)
+    {
+      throw(runtime_error("Reverse Mapping not supported"));
+    }
+    if (mapping.edit_size() > 1 || (
+          mapping.edit_size() == 1 && mapping.edit(0).from_length() !=
+          mapping.edit(0).to_length()))
+    {
+      stringstream ss;
+      ss << pb2json(mapping) << ": Only mappings with a single trvial edit"
+         << " supported in ref path";
+      throw runtime_error(ss.str());
+    }
+    len += _vg->get_node(mapping.position().node_id())->sequence().length();
+  }
+  return len;
 }
