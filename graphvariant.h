@@ -96,4 +96,6 @@ protected:
    
 };
 
+std::ostream& operator<<(std::ostream& os, const GraphVariant& gv);
+
 #endif

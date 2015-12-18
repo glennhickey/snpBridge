@@ -161,7 +161,6 @@ void GraphVariant::loadAlleles()
     {
       if (istreq(_var.alleles[i], nt.node->sequence()))
       {
-        cerr << "found allele " << i << " = " << nt.node->id() << endl;
         _graphAlleles.push_back(list<Node*>(1, nt.node));
       }
     }
@@ -283,4 +282,21 @@ bool GraphVariant::istreq(const string& s1, const string& s2,
     }
   }
   return true;
+}
+
+ostream& operator<<(ostream& os, const GraphVariant& gv)
+{
+  const Variant v = gv.getVariant();
+  os << "GV:[" << v.sequenceName << ":" << v.position;
+  for (int i = 0; i < v.alleles.size(); ++i)
+  {
+    os << "(" << i << ") vcf=" << v.alleles[i] << " | vg=";
+    for (auto n : gv.getGraphAllele(i))
+    {
+      os << n->id() << ",";
+    }
+    os << "; ";
+  }
+  os << "]";
+  return os;
 }

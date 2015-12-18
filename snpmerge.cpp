@@ -30,11 +30,15 @@ void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
   
   Variant var1(*vcf);
   Variant var2(*vcf);
-  if (!vcf->getNextVariant(var1))
+  // skip to first variant after offset
+  for (int vcfPos = -1; vcfPos < offset; vcfPos = var1.position)
   {
-    // empty file
-    cerr << "No variants found in VCF" << endl;
-    return;
+    if (!vcf->getNextVariant(var1))
+    {
+      // empty file
+      cerr << "No variants found in VCF" << endl;
+      return;
+    }
   }
   _gv1.loadVariant(vg, var1);
 
@@ -42,16 +46,14 @@ void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
 
   for (; vcf->getNextVariant(var2); swap(var1, var2), swap(_gv1, _gv2))
   {
-    if (var1.position < offset)
-    {
-      // fast forward until we reach begnning of vg
-      continue;
-    }
     if (var2.position >= offset + graphLen)
     {
       // stop after end of vg
       break;
     }
+    
+    _gv2.loadVariant(vg, var2);
+    
     if (var2.position - (var1.position + var1.alleles[0].length() - 1) >
         windowSize)
     {
@@ -59,11 +61,8 @@ void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
       continue;
     }
 
-    _gv2.loadVariant(vg, var2);
-
 #ifdef DEBUG
-    cerr << "\n* v1 " << var1.sequenceName << " " << var1.position
-         << " v2 " << var2.sequenceName << " " << var2.position << endl;
+    cerr << "\nv1 " << _gv1 << endl << "v2 " << _gv2 << endl;
 #endif
 
     if (_gv1.overlaps(_gv2))
@@ -148,7 +147,9 @@ void SNPMerge::makeBridge(int allele1, int allele2)
   // new bridge that we'll add
   for (auto p : outEdges1)
   {
-    cerr << "destroy1 " << node1->id() << " " << true << ", " << p.first << " " << p.second << endl; 
+#ifdef DEBUG
+    cerr << "destroy1 " << node1->id() << " " << true << ", " << p.first << " " << p.second << endl;
+#endif
     Edge* edge = _vg->get_edge(NodeSide(node1->id(), true),
                                NodeSide(p.first, p.second));
     assert(edge != NULL);
@@ -162,7 +163,9 @@ void SNPMerge::makeBridge(int allele1, int allele2)
   {
     for (auto p : inEdges2)
     {
+#ifdef DEBUG
       cerr << "destroy2 " << p.first << " " << !p.second << ", " << node2->id() << " " << false << endl;
+#endif
       Edge* edge = _vg->get_edge(NodeSide(p.first, !p.second),
                                  NodeSide(node2->id(), false));
       if (p.first == node1->id())
@@ -189,7 +192,9 @@ void SNPMerge::makeBridge(int allele1, int allele2)
   if (refPath.empty())
   {
     _vg->create_edge(node1, node2, false, false);
+#ifdef DEBUG
     cerr << "create " << node1->id() << ", " << node2->id() << endl;
+#endif
   }
   // otherwise, make a copy of ref path and stick that in between
   else
@@ -198,11 +203,18 @@ void SNPMerge::makeBridge(int allele1, int allele2)
     for (auto refNode : refPath)
     {
       Node* cpyNode = _vg->create_node(refNode->sequence());
+      cerr << "create " << cpyNode->id() << endl;
+
       _vg->create_edge(prev, cpyNode, false, false);
+#ifdef DEBUG
+      cerr << "create " << prev->id() << " -> " << cpyNode->id() << endl;
+#endif
       prev = cpyNode;
     }
     _vg->create_edge(prev, node2, false, false);
+#ifdef DEBUG
     cerr << "create " << prev->id() << ", " << node2->id() << endl;
+#endif
   }
 }
 

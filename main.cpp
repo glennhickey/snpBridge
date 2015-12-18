@@ -17,7 +17,7 @@ using namespace vcflib;
 using namespace vg;
 using namespace std;
 
-static const int DefaultWindowSize = 100;
+static const int DefaultWindowSize = 50;
 
 void help_main(char** argv)
 {
