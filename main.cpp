@@ -105,7 +105,17 @@ int main(int argc, char** argv) {
 
   SNPMerge snpMerge;
 
+  // Process all adjacant variants my merging them in the graph
+  // when possible
   snpMerge.processGraph(&vg, &vcf, offset);
+
+  // Above inserts new nodes between existing nodes.  So we revise ids
+  // to be sorted
+  //vg.sort();
+  //vg.compact_ids();
+
+  // output modified graph to cout
+  vg.serialize_to_ostream(cout);
     
   return 0;
 }

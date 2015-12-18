@@ -80,21 +80,10 @@ public:
 
 protected:
 
-   /** merge up alternate alleles of adjacent snps ex:
-       A--G        A--G
-        X     ==>
-       T--A        T--A
-       * ie you either take both alts or neither */
-   void uncollapse_and(int allele1, int allele2);
-
-   /** make sure you can never got from the alt allele
-    * in first snp to a non-reference allele in 2nd 
-       A--G        A  G
-        X     ==>   X
-       T--A        T  A
-       * ie you either take the first alt or the second
-       * but not both */
-   void uncollapse_xor(int allele1);
+   /** Make a direct bridge from end of allele1 (in graph) to 
+    * start of allele2.  If allele2 is not reference (0), 
+    * make sure the new bridge is the only point of entry */
+   void makeBridge(int allele1, int allele2);
    
    /** get the phasing relationship using the GT fields between
     * twp variants for a pair of two alternate alleles (>0).
@@ -118,6 +107,7 @@ protected:
                        vcflib::Variant& v2);
 protected:
 
+   vg::VG* _vg;
    GraphVariant _gv1;
    GraphVariant _gv2;
 

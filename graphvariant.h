@@ -55,7 +55,16 @@ public:
    /** get vg allele by number */
    const std::list<vg::Node*>& getGraphAllele(int i) const;
 
+   /** access the vcflib variant object */
    const vcflib::Variant& getVariant() const;
+
+   /** get path along reference between this variant 
+       and another one (further down). */
+   void getReferencePathTo(const GraphVariant& other,
+                           std::list<vg::Node*>& outPath) const;
+
+   /** test if variants overlap.  so we can skip with a warning */
+   bool overlaps(const GraphVariant& other) const;
    
    /** what kind of variant.  */
    Cat varCat(vcflib::Variant& var) const;

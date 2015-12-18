@@ -13,7 +13,7 @@ using namespace vcflib;
 using namespace vg;
 using namespace std;
 
-SNPMerge::SNPMerge()
+SNPMerge::SNPMerge() : _vg(NULL)
 {
 }
 
@@ -23,6 +23,7 @@ SNPMerge::~SNPMerge()
 
 void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset)
 {
+  _vg = vg;
   _gv1.init(offset);
   _gv2.init(offset);
   
@@ -42,57 +43,128 @@ void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset)
 
     cerr << "v1 " << var1.sequenceName << " " << var1.position
          << " v2 " << var2.sequenceName << " " << var2.position << endl;
-
-    computeLinkCounts(var1, var2);
-
-    for (int a1 = 1; a1 < var1.alleles.size(); ++a1)
+    
+    if (_gv1.overlaps(_gv2))
     {
-      for (int a2 = 1; a2 < var2.alleles.size(); ++a2)
-      {
-        // note can probably get what we need by calling once instead
-        // of in loop....
-        Phase phase = phaseRelation(var1, a1, var2, a2);
+      cerr << "Skipping adjacent variants at " << var1.position << " and "
+           << var2.position << " because they overlap" << endl;
+    }
+    else
+    {
+      computeLinkCounts(var1, var2);
 
-        if (phase == GT_AND)
+      for (int a1 = 1; a1 < var1.alleles.size(); ++a1)
+      {
+        for (int a2 = 1; a2 < var2.alleles.size(); ++a2)
         {
-          uncollapse_and(a1, a2);
-        }
-        else if (phase == GT_XOR)
-        {
-          uncollapse_xor(a1);
-        }
-        // we can get away with breaking here because results
-        // mutually exclusive (see simplifying assumption in
-        // phaseRelation()).  So as soon as we see a GT_AND or
-        // GT_XOR, then everything else must be GT_OTHER
-        else
-        {
-          break;
+          // note can probably get what we need by calling once instead
+          // of in loop....
+          Phase phase = phaseRelation(var1, a1, var2, a2);
+
+          if (phase == GT_AND)
+          {
+            makeBridge(a1, a2);
+            // we can get away with breaking here (and below) because results
+            // mutually exclusive (see simplifying assumption in
+            // phaseRelation()).  So as soon as we see a GT_AND or
+            // GT_XOR, then everything else must be GT_OTHER
+            break;
+          }
+          else if (phase == GT_XOR)
+          {
+            makeBridge(a1, 0);
+            break;
+          }
+          else
+          {
+#ifdef DEBUG
+            cerr << a1 << " OTHER " << a2 << " detected at "
+                 << _gv1.getVariant().position << " ";
+            for (int i = 0; i < _linkCounts.size(); ++i)
+            {
+              cerr << "(";
+              for (int j = 0; j < _linkCounts[i].size(); ++j)
+              {
+                cerr << _linkCounts[i][j] << ",";
+              }
+              cerr << ") ";
+            }
+            cerr << endl;
+#endif
+          }
         }
       }
     }
-    
     swap(var1, var2);
     swap(_gv1, _gv2);
   }  
 }
 
-void SNPMerge::uncollapse_and(int allele1, int allele2)
+void SNPMerge::makeBridge(int allele1, int allele2)
 {
 #ifdef DEBUG
-  cerr << allele1 << " AND " << allele2 << " detected at "
-       << _gv1.getVariant().position << endl;
+  cerr << allele1 << " UNC " << allele2 << " detected at "
+       << _gv1.getVariant().position << " ";
+  for (int i = 0; i < _linkCounts.size(); ++i)
+  {
+     cerr << "(";
+     for (int j = 0; j < _linkCounts[i].size(); ++j)
+     {
+       cerr << _linkCounts[i][j] << ",";
+     }
+     cerr << ") ";
+  }
+  cerr << endl;
 #endif
-  
-}
 
-void SNPMerge::uncollapse_xor(int allele1)
-{
-#ifdef DEBUG
-  cerr << allele1 << " OR x" << " detected at "
-       << _gv1.getVariant().position << endl;
-#endif
-  
+  Node* node1 = _gv1.getGraphAllele(allele1).back();
+  Node* node2 = _gv1.getGraphAllele(allele2).back();
+
+  vector<pair<int64_t, bool> >& outEdges1 = _vg->edges_on_end[node1->id()];
+  vector<pair<int64_t, bool> >& inEdges2 = _vg->edges_on_start[node2->id()];
+
+  // make sure there's no other way out of node1 but the
+  // new bridge that we'll add
+  for (auto& p : outEdges1)
+  {
+    _vg->destroy_edge(NodeSide(node1->id(), true),
+                      NodeSide(p.first, p.second));
+  }
+  if (allele2 > 0)
+  {
+    // if dealting with an alt-alt case, make sure no other
+    // way into second alt than the new bridge we'll add
+    for (auto& p : inEdges2)
+    {
+      _vg->destroy_edge(NodeSide(p.first, p.second),
+                        NodeSide(node2->id(), false));
+    }
+  }
+
+  // find the path between the two variant alleles along the
+  // reference.  since we only deal with consecutive variants,
+  // it's sufficient to stick this path between
+  list<Node*> refPath;
+  _gv1.getReferencePathTo(_gv2, refPath);
+
+  // if there's no path, we assume the variants are directly adjacent
+  // and just stick and edge between them
+  if (refPath.empty())
+  {
+    _vg->create_edge(node1, node2, false, false);
+  }
+  // otherwise, make a copy of ref path and stick that in between
+  else
+  {
+    Node* prev = node1;
+    for (auto refNode : refPath)
+    {
+      Node* cpyNode = _vg->create_node(refNode->sequence());
+      _vg->create_edge(prev, cpyNode, false, false);
+      prev = cpyNode;
+    }
+    _vg->create_edge(prev, node2, false, false);
+  }
 }
 
 SNPMerge::Phase SNPMerge::phaseRelation(Variant& v1, int allele1,
@@ -117,13 +189,16 @@ SNPMerge::Phase SNPMerge::phaseRelation(Variant& v1, int allele1,
 
   if (total < 1)
   {
-    cerr << "No phasing information found for var1=" << v1
-         << endl << " and v2 " << v2 << endl;
-    return GT_OTHER;
+    cerr << "Alternate allele " << allele1 << " never seen in GT for "
+         << "variant " << v1 << endl;
+    // the best we can do is cut path to next alternate.
+    // though really we want to remove such variants
+    // entirely
+    return GT_XOR;
   }
   
   // so exclusively to allele 2 will be a GT_AND
-  if (toAllele2 == total)
+  else if (toAllele2 == total)
   {
     return GT_AND;
   }

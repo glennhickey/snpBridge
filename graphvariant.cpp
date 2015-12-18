@@ -145,7 +145,7 @@ void GraphVariant::loadAlleles()
   //set_intersection(toSibs.begin(), toSibs.end(),
   //                 fromSibs.begin(), fromSibs.end(), sibs.begin());
   // Weird: above won't compile.  just brute force it
-  for (nt : toSibs)
+  for (auto& nt : toSibs)
   {
     if (fromSibs.find(nt) != fromSibs.end())
     {
@@ -232,6 +232,41 @@ const list<Node*>& GraphVariant::getGraphAllele(int i) const
 const Variant& GraphVariant::getVariant() const
 {
   return _var;
+}
+
+void GraphVariant::getReferencePathTo(const GraphVariant& other,
+                                      list<Node*>& outPath) const
+{
+  outPath.clear();
+
+  // scan to end of reference allele
+  std::list<vg::Mapping>::const_iterator i = _mappingIt;
+  for (; i != _path->end() &&
+          i->position().node_id() != _graphAlleles[0].back()->id(); ++i);
+  assert(i != _path->end());
+  assert(i->position().node_id() == _graphAlleles[0].back()->id());
+
+  // our destination:
+  Node* otherHead = other._graphAlleles[0].front();
+
+  // walk one step, then start keeping track of our path
+  // (all nodes between _graphAlleles[0].back() and
+  //  other._graphAlleles[0].front(), exclusive)
+  for (++i; i != _path->end() && i->position().node_id() != otherHead->id(); ++i)
+  {
+    outPath.push_back(_vg->get_node(i->position().node_id()));
+  }
+
+  // no way we should get to end since other is between it and us
+  cerr << "head " <<  _graphAlleles[0].back()->id()
+       << " it  " <<  _mappingIt->position().node_id()
+       << " tail " <<  otherHead->id() << endl;
+  assert(i != _path->end());
+}
+
+bool GraphVariant::overlaps(const GraphVariant& other) const
+{
+  return _var.position + _var.alleles[0].size() > other._var.position;
 }
 
 bool GraphVariant::istreq(const string& s1, const string& s2,
