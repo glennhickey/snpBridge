@@ -43,12 +43,23 @@ void SNPBridge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
   _gv1.loadVariant(vg, var1);
 
   int graphLen = vgRefLength(var1);
-  // used for detecting overlaps (a long deletion for example can
-  // overlap many subsequent variants..)
-  int lastRefPos = -1;
+
 
   for (; vcf->getNextVariant(var2); swap(var1, var2), swap(_gv1, _gv2))
   {
+    // skip ahead until we're not overlapping
+    bool breakOut = false;
+    while (!breakOut && var2.position < var1.position + var1.alleles[0].size())
+    {
+      cerr << "Skipping variant at " << var2.position << " because it "
+           << "overlaps previous variant at position " << var1.position << endl;
+      breakOut = !vcf->getNextVariant(var2);
+    }
+    if (breakOut)
+    {
+      break;
+    }
+
     if (var2.position >= offset + graphLen)
     {
       // stop after end of vg
@@ -67,15 +78,6 @@ void SNPBridge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
 #ifdef DEBUG
     cerr << "\nv1 " << _gv1 << endl << "v2 " << _gv2 << endl;
 #endif
-
-    lastRefPos = max(lastRefPos, (int)(var1.position + var1.alleles[0].size()));
-    if (var2.position < lastRefPos)
-    {
-      cerr << "Skipping adjacent variants at " << var1.position << " and "
-           << var2.position
-           << " because they overlap (each other or previous variant)" << endl;
-      continue;
-    }
 
     computeLinkCounts(var1, var2);
 
