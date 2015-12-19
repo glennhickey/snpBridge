@@ -4,8 +4,8 @@
  * Released under the MIT license, see LICENSE.cactus
  */
 
-#ifndef _SNPMERGE_H
-#define _SNPMERGE_H
+#ifndef _SNPBRIDGE_H
+#define _SNPBRIDGE_H
 
 #include <string>
 #include <vector>
@@ -64,14 +64,14 @@
 
 */
 
-class SNPMerge
+class SNPBridge
 {
 public:
 
    enum Phase {GT_AND, GT_XOR, GT_OTHER};
 
-   SNPMerge();
-   ~SNPMerge();
+   SNPBridge();
+   ~SNPBridge();
 
    /** iterate through adjacent snps and do merging, in place, in the 
     * vg graph */

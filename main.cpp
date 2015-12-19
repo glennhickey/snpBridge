@@ -11,7 +11,7 @@
 #include "vg/vg.hpp"
 #include "Variant.h"
 
-#include "snpmerge.h"
+#include "snpbridge.h"
 
 using namespace vcflib;
 using namespace vg;
@@ -96,18 +96,16 @@ int main(int argc, char** argv) {
     exit(1);
   }
   VG vg(vgStream);
-  cerr << "vg open" << endl;
 
   // Open the vcf file
   VariantCallFile vcf;
   vcf.open(vcfFile);
-  cerr << "vcf open" << endl;
 
-  SNPMerge snpMerge;
+  SNPBridge snpBridge;
 
   // Process all adjacant variants my merging them in the graph
   // when possible
-  snpMerge.processGraph(&vg, &vcf, offset, windowSize);
+  snpBridge.processGraph(&vg, &vcf, offset, windowSize);
 
   // Above inserts new nodes between existing nodes.  So we revise ids
   // to be sorted

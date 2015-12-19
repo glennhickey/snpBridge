@@ -4,7 +4,7 @@
  * Released under the MIT license, see LICENSE.cactus
  */
 
-#include "snpmerge.h"
+#include "snpbridge.h"
 
 #include "vg/vg.hpp"
 #include "Variant.h"
@@ -13,15 +13,15 @@ using namespace vcflib;
 using namespace vg;
 using namespace std;
 
-SNPMerge::SNPMerge() : _vg(NULL)
+SNPBridge::SNPBridge() : _vg(NULL)
 {
 }
 
-SNPMerge::~SNPMerge()
+SNPBridge::~SNPBridge()
 {
 }
 
-void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
+void SNPBridge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
                             int windowSize)
 {
   _vg = vg;
@@ -43,6 +43,9 @@ void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
   _gv1.loadVariant(vg, var1);
 
   int graphLen = vgRefLength(var1);
+  // used for detecting overlaps (a long deletion for example can
+  // overlap many subsequent variants..)
+  int lastRefPos = -1;
 
   for (; vcf->getNextVariant(var2); swap(var1, var2), swap(_gv1, _gv2))
   {
@@ -65,10 +68,12 @@ void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
     cerr << "\nv1 " << _gv1 << endl << "v2 " << _gv2 << endl;
 #endif
 
-    if (_gv1.overlaps(_gv2))
+    lastRefPos = max(lastRefPos, (int)(var1.position + var1.alleles[0].size()));
+    if (var2.position <= lastRefPos)
     {
       cerr << "Skipping adjacent variants at " << var1.position << " and "
-           << var2.position << " because they overlap" << endl;
+           << var2.position
+           << " because they overlap (each other or previous variant)" << endl;
       continue;
     }
 
@@ -118,7 +123,7 @@ void SNPMerge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
   }
 }
 
-void SNPMerge::makeBridge(int allele1, int allele2)
+void SNPBridge::makeBridge(int allele1, int allele2)
 {
 #ifdef DEBUG
   cerr << allele1 << " UNC " << allele2 << " detected at "
@@ -203,10 +208,9 @@ void SNPMerge::makeBridge(int allele1, int allele2)
     for (auto refNode : refPath)
     {
       Node* cpyNode = _vg->create_node(refNode->sequence());
-      cerr << "create " << cpyNode->id() << endl;
-
       _vg->create_edge(prev, cpyNode, false, false);
 #ifdef DEBUG
+      cerr << "create " << cpyNode->id() << endl;
       cerr << "create " << prev->id() << " -> " << cpyNode->id() << endl;
 #endif
       prev = cpyNode;
@@ -218,7 +222,7 @@ void SNPMerge::makeBridge(int allele1, int allele2)
   }
 }
 
-SNPMerge::Phase SNPMerge::phaseRelation(Variant& v1, int allele1,
+SNPBridge::Phase SNPBridge::phaseRelation(Variant& v1, int allele1,
                                         Variant& v2, int allele2) const
 {
   // this is where we could take into account allele
@@ -266,7 +270,7 @@ SNPMerge::Phase SNPMerge::phaseRelation(Variant& v1, int allele1,
   return GT_OTHER;
 }
 
-void SNPMerge::computeLinkCounts(Variant& v1, Variant& v2)
+void SNPBridge::computeLinkCounts(Variant& v1, Variant& v2)
 {
   // make our matrix and set to 0
   initLinkCounts(v1, v2);
@@ -364,7 +368,7 @@ void SNPMerge::computeLinkCounts(Variant& v1, Variant& v2)
   }
 }
 
-void SNPMerge::initLinkCounts(Variant& v1,
+void SNPBridge::initLinkCounts(Variant& v1,
                               Variant& v2)
 {
   // set _linkCounts to 0 and make sure it's at least
@@ -386,7 +390,7 @@ void SNPMerge::initLinkCounts(Variant& v1,
   }  
 }
 
-int SNPMerge::vgRefLength(Variant& var) const
+int SNPBridge::vgRefLength(Variant& var) const
 {
   // duplicating some code from the built in traversal of graphvariant,
   // but it's nice to have path length at outset to make scope checking

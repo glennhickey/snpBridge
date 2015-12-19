@@ -28,7 +28,7 @@ else
 	LDFLAGS:=$(LDFLAGS) -lrt
 endif
 
-all: snpMerge
+all: snpBridge
 
 $(LIBSDSL): $(LIBVG)
 
@@ -41,19 +41,19 @@ $(LIBXG): $(LIBVG)
 	cd vg && $(MAKE) xg/libxg.a
 
 # Needs XG to be built for the protobuf headers
-main.o: main.cpp snpmerge.h graphvariant.h $(LIBXG)
+main.o: main.cpp snpbridge.h graphvariant.h $(LIBXG)
 	$(CXX) main.cpp -c $(CXXFLAGS)
 
 graphvariant.o: graphvariant.h graphvariant.cpp
 	$(CXX) graphvariant.cpp -c $(CXXFLAGS)
 
-snpmerge.o: snpmerge.h snpmerge.cpp graphvariant.h
-	$(CXX) snpmerge.cpp -c $(CXXFLAGS)
+snpbridge.o: snpbridge.h snpbridge.cpp graphvariant.h
+	$(CXX) snpbridge.cpp -c $(CXXFLAGS)
 
-snpMerge: main.o snpmerge.o graphvariant.o $(VGLIBS)
-	$(CXX) main.o snpmerge.o graphvariant.o $(VGLIBS) -o snpMerge $(CXXFLAGS) $(LDFLAGS)
+snpBridge: main.o snpbridge.o graphvariant.o $(VGLIBS)
+	$(CXX) main.o snpbridge.o graphvariant.o $(VGLIBS) -o snpBridge $(CXXFLAGS) $(LDFLAGS)
 
 clean:
-	rm -f snpMerge
+	rm -f snpBridge
 	rm -f *.o
 #	cd vg && $(MAKE) clean
