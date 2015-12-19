@@ -1,16 +1,35 @@
 # snpBridge
 Bridge adjacent snps in a variant graph constructed from vcf, using genotype information in said vcf.  The goal is to remove paths from the graph that are not present in any haplotypes implied by the VCF.
 
-1. If two alternate alleles in consecutive variants are linked in all samples, they will be bridged so that all paths in the graph will either contain both or none.
-2. If an alternate allele is linked to the *reference* at the next variant in all samples, it will be bridged so that all paths in the graph that contain it never contain any alts at the next variant.
-
-
 ## Limitations
-* Will only work on vg files created with vg construct -f -v
+* **Will only work on vg files created with vg construct -f -v**
 * Only adjacent pairs of VCF variants are considered
 * Overlapping variants in VCF will be skipped
 * Coordinate of first vg position must be known (and passed with -o).  This would normall be the start position given in vg construct -R to create the initial graph...
 * Multiallelic variants are handled, but not combinatorially.  Ie only the two cases above are considered for each allele.  
+
+## Method
+
+Adjacent SNPs are bridged if they are within the window size and one of the following two cases apply:
+
+### Case 1: Linked Alternate Alleles
+
+If given the genotype information, every sample allele that has alternate at SNP 1 also has alternate at SNP 2, then the graph is changed so that any path going through the alternate allele at SNP1 must also go through the alternate allele at SNP 2.  
+
+#### Example: Before
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_orig.png)
+#### Example: After
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_bridge.png)
+
+### Case 2: Linked Alternate and Reference Alleles
+
+If given the genotype information, every sample allele that has alternate at SNP 1 has reference at SNP 2, then the graph is changed so that any path going through the alternate allele at SNP1 must also go through the reference allele at SNP 2.  
+
+#### Example: Before
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altref_orig.png)
+#### Example: After
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altref_bridge.png)
+
 
 ## Usage
 
