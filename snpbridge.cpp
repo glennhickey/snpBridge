@@ -69,7 +69,7 @@ void SNPBridge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
 #endif
 
     lastRefPos = max(lastRefPos, (int)(var1.position + var1.alleles[0].size()));
-    if (var2.position <= lastRefPos)
+    if (var2.position < lastRefPos)
     {
       cerr << "Skipping adjacent variants at " << var1.position << " and "
            << var2.position
