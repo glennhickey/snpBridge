@@ -4,7 +4,7 @@ Bridge adjacent snps in a variant graph constructed from vcf, using genotype inf
 ## Limitations
 * **Will only work on vg files created with vg construct -f -v**
 * Only adjacent pairs of VCF variants are considered
-* Overlapping variants in VCF will be skipped
+* Overlapping variants in VCF will be skipped (ie SNPs nested in previous deletion)
 * Coordinate of first vg position must be known (and passed with -o).  This would normall be the start position given in vg construct -R to create the initial graph...
 * Multiallelic variants are handled, but not combinatorially.  Ie only the two cases above are considered for each allele.  
 

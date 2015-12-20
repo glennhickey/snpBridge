@@ -47,12 +47,15 @@ void SNPBridge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
 
   for (; vcf->getNextVariant(var2); swap(var1, var2), swap(_gv1, _gv2))
   {
-    // skip ahead until we're not overlapping
+    // skip ahead until var2 doesn't overlap var1 or anything between
     bool breakOut = false;
-    while (!breakOut && var2.position < var1.position + var1.alleles[0].size())
+    int prev_position = var1.position + var1.alleles[0].size();
+    while (!breakOut && var2.position < prev_position)
     {
       cerr << "Skipping variant at " << var2.position << " because it "
            << "overlaps previous variant at position " << var1.position << endl;
+      prev_position = max(prev_position,
+                          (int)(var2.position + var2.alleles[0].size()));
       breakOut = !vcf->getNextVariant(var2);
     }
     if (breakOut)
