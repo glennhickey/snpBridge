@@ -5,9 +5,6 @@
  */
 #include "graphvariant.h"
 
-#include "vg/vg.hpp"
-#include "Variant.h"
-
 using namespace vcflib;
 using namespace vg;
 using namespace std;
@@ -56,7 +53,7 @@ void GraphVariant::loadVariant(VG* vg, Variant& var)
   int vcfPos = var.position - _offset;
   for (; _mappingIt != _path->end(); ++_mappingIt, _refIdx += mappingLen)
   {
-    if (_mappingIt->is_reverse() == true)
+    if (_mappingIt->position().is_reverse() == true)
     {
       throw(runtime_error("Reverse Mapping not supported"));
     }

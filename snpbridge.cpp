@@ -6,9 +6,6 @@
 
 #include "snpbridge.h"
 
-#include "vg/vg.hpp"
-#include "Variant.h"
-
 using namespace vcflib;
 using namespace vg;
 using namespace std;
@@ -410,7 +407,7 @@ int SNPBridge::vgRefLength(Variant& var) const
   list<Mapping>& path = _vg->paths.get_path(var.sequenceName);
   for (auto& mapping : path)
   {
-    if (mapping.is_reverse() == true)
+    if (mapping.position().is_reverse() == true)
     {
       throw(runtime_error("Reverse Mapping not supported"));
     }

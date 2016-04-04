@@ -14,7 +14,7 @@
 #include <stdexcept>
 #include <sstream>
 
-#include "vg/vg.hpp"
+#include "vg/src/vg.hpp"
 #include "Variant.h"
 #include "graphvariant.h"
 

@@ -8,7 +8,7 @@
 #include <fstream>
 #include <getopt.h>
 
-#include "vg/vg.hpp"
+#include "vg/src/vg.hpp"
 #include "Variant.h"
 
 #include "snpbridge.h"

@@ -2,22 +2,24 @@
 .PHONY: all clean
 
 CXX=g++
-INCLUDES=-Ivg -Ivg/gssw/src -Ivg/protobuf/build/include -Ivg/gcsa2 -Ivg/cpp -Ivg/sdsl-lite/install/include -Ivg/vcflib/src -Ivg/vcflib -Ivg/vcflib/tabixpp/htslib -Ivg/progress_bar -Ivg/sparsehash/build/include -Ivg/lru_cache -Ivg/fastahack -Ivg/xg -Ivg/xg/sdsl-lite/build/include -Ivg/rocksdb/include
+INCLUDES=-Ivg/src -Ivg/include
 CXXFLAGS=-O3 -std=c++11 -fopenmp -g $(INCLUDES)
-#CXXFLAGS=-O0 -std=c++11 -fopenmp -g $(INCLUDES) -DDEBUG
-LDSEARCH=-Lvg -Lvg/xg -Lvg/xg/sdsl-lite/build/lib -Lvg/xg/sdsl-lite/build/external/libdivsufsort/lib
-LDFLAGS=-lm -lpthread -lz -lbz2 -lsnappy -ldivsufsort -ljansson $(LDSEARCH)
-LIBVG=vg/libvg.a
-LIBXG=vg/xg/libxg.a
-LIBPROTOBUF=vg/protobuf/libprotobuf.a
-LIBSDSL=vg/sdsl-lite/install/lib/libsdsl.a
-LIBGSSW=vg/gssw/src/libgssw.a
-LIBSNAPPY=vg/snappy/libsnappy.a
-LIBROCKSDB=vg/rocksdb/librocksdb.a
-LIBHTS=vg/htslib/libhts.a
-LIBGCSA2=vg/gcsa2/libgcsa2.a
-LIBVCFLIB=vg/vcflib/libvcflib.a
-VGLIBS=$(LIBVG) $(LIBXG) $(LIBVCFLIB) $(LIBGSSW) $(LIBSNAPPY) $(LIBROCKSDB) $(LIBHTS) $(LIBGCSA2) $(LIBSDSL) $(LIBPROTOBUF)
+VGLIBDIR=vg/lib
+LDSEARCH=-Lvg/src -L$(VGLIBDIR)
+LDFLAGS=-lm -lpthread -lz -lbz2 -lsnappy -ldivsufsort -ldivsufsort64 -ljansson $(LDSEARCH)
+LIBVG=$(VGLIBDIR)/libvg.a
+LIBXG=$(VGLIBDIR)/libxg.a
+LIBPROTOBUF=$(VGLIBDIR)/libprotobuf.a
+LIBSDSL=$(VGLIBDIR)/libsdsl.a
+LIBGSSW=$(VGLIBDIR)/libgssw.a
+LIBSNAPPY=$(VGLIBDIR)/libsnappy.a
+LIBROCKSDB=$(VGLIBDIR)/librocksdb.a
+LIBHTS=$(VGLIBDIR)/libhts.a
+LIBGCSA2=$(VGLIBDIR)/libgcsa2.a
+LIBVCFLIB=$(VGLIBDIR)/libvcflib.a
+LIBRAPTOR=$(VGLIBDIR)/libraptor2.a
+LIBGFAK=$(VGLIBDIR)/libgfakluge.a
+VGLIBS=$(LIBVG) $(LIBXG) $(LIBVCFLIB) $(LIBGSSW) $(LIBSNAPPY) $(LIBROCKSDB) $(LIBHTS) $(LIBGCSA2) $(LIBSDSL) $(LIBPROTOBUF) $(LIBRAPTOR) $(LIBGFAK)
 
 #Some little adjustments to build on OSX
 #(tested with gcc4.9 and jansson installed from MacPorts)
@@ -35,14 +37,13 @@ $(LIBSDSL): $(LIBVG)
 $(LIBPROTOBUF): $(LIBVG)
 
 $(LIBVG):
-	cd vg && $(MAKE) libvg.a
+	cd vg && . ./source_me.sh && $(MAKE) lib/libvg.a
 
 $(LIBXG): $(LIBVG)
-	cd vg && $(MAKE) xg/libxg.a
+	cd vg && . ./source_me.sh && $(MAKE) lib/libxg.a
 
 # Needs XG to be built for the protobuf headers
-main.o: main.cpp snpbridge.h graphvariant.h $(LIBXG)
-	$(CXX) main.cpp -c $(CXXFLAGS)
+main.o: $(LIBXG)
 
 graphvariant.o: graphvariant.h graphvariant.cpp
 	$(CXX) graphvariant.cpp -c $(CXXFLAGS)
