@@ -30,9 +30,9 @@ If given the genotype information, every sample allele that has alternate at SNP
 
 #### Case 1c) Only links from alt1 to reference2
 ##### 2 Adjacent Examples: Before 
-![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_fromref_orig.png)
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_toref_orig.png)
 ##### 2 Adjacent Examples: After
-![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_fromref_bridge.png)
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_toref_bridge.png)
 
 ### Case 2: Linked Alternate and Reference Alleles
 
