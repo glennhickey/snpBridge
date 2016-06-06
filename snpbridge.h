@@ -29,46 +29,60 @@
     But the vg graph constructed from the vcf will contain them all.  
     So here we take as input a vg graph, and the vcf it was constructed from.  
     Using the vcf we look at pairs of snps, and remove paths that don't 
-    correspond to haplotypes.  This is done with two operations
+    correspond to haplotypes.  This is done by inserting a bridge with 
+    appropriate connectors
     (credit: Benedict Paten):
 
-    1) 
+    ex: 
 
     Input: (bottom snps are reference)
     A       G
     ACAFATA
     T       C
 
-    Only ref-ref and alt-alt:
     We duplicate reference between the snps,
     and use it to make two parallel paths:
 
     A-ACAFATA-G
  
+    T ACAFATA C
+
+    Edges then filled in to represent linking in VCF...
+    ex: If a haplotype contains the C in alt to iff if has the T at alt 1:
+    (GT_AND)
+
+    A-ACAFATA-G
+ 
     T-ACAFATA-C
-    ********************************88
 
-    2)
+    but if no haplotype has both the T and C alt:
+    (GT_XOR)
+    A-ACAFATA-G
+             X
+    T-ACAFATA C
 
-    Only ref-ref annd alt-ref and ref-alt:
-
-    A-ACAFATA G
-    X
+    or no hapltoype has T-Alt and G-Ref
+    (GT_FROM_REF)
+    A-ACAFATA-G
+             \
     T-ACAFATA-C
 
-    Duplicate reference as above.  This time
-    the dublicated reference segment can only 
-    connect to the reference base (C, lower-right),
-    but the original reference segment can connect
-    to both alts (C, G)
-
+    or no hapltoype has A-Ref and T-Alt
+    (GT_TO_REF)
+    A-ACAFATA-G
+             /
+    T-ACAFATA-C
 */
 
 class SNPBridge
 {
 public:
 
-   enum Phase {GT_AND, GT_XOR, GT_OTHER};
+   enum Phase {GT_AND = 0, // only link from Alt1 to Alt2
+               GT_XOR, // only link from Alt1 to ref and ref to Alt2
+               GT_FROM_REF, // link from Alt1 to Alt2 and ref to Alt2
+               GT_TO_REF, // link from Alt1 to Alt2 and Alt1 to ref
+               GT_OTHER}; // all links (leave alone)
 
    SNPBridge();
    ~SNPBridge();
@@ -82,9 +96,8 @@ public:
 protected:
 
    /** Make a direct bridge from end of allele1 (in graph) to 
-    * start of allele2.  If allele2 is not reference (0), 
-    * make sure the new bridge is the only point of entry */
-   void makeBridge(int allele1, int allele2);
+    * start of allele2. */
+   void makeBridge(int allele1, int allele2, Phase phase);
    
    /** get the phasing relationship using the GT fields between
     * twp variants for a pair of two alternate alleles (>0).
@@ -125,4 +138,9 @@ protected:
    std::vector<std::vector<int> > _linkCounts;
 };
 
+inline std::string phase2str(SNPBridge::Phase phase)
+{
+  static string s[] = {"GT_AND", "GT_XOR", "GT_FROM_REF", "GT_TO_REF", "GT_OTHER"}; 
+  return s[phase];
+}
 #endif

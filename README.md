@@ -16,10 +16,23 @@ Adjacent SNPs are bridged if they are within the window size and one of the foll
 
 If given the genotype information, every sample allele that has alternate at SNP 1 also has alternate at SNP 2, then the graph is changed so that any path going through the alternate allele at SNP1 must also go through the alternate allele at SNP 2.  
 
-#### Example: Before
+#### Case 1a) No links between alts and reference 
+##### Example: Before
 ![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_orig.png)
-#### Example: After
+##### Example: After
 ![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_bridge.png)
+
+#### Case 1b) Only links from reference 1 to alt2
+##### Example: Before
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_fromref_orig.png)
+##### Example: After
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_fromref_bridge.png)
+
+#### Case 1c) Only links from alt1 to reference2
+##### 2 Adjacent Examples: Before 
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_fromref_orig.png)
+##### 2 Adjacent Examples: After
+![altalt_orig](https://raw.githubusercontent.com/glennhickey/snpBridge/development/doc/altalt_fromref_bridge.png)
 
 ### Case 2: Linked Alternate and Reference Alleles
 

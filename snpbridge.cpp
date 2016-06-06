@@ -80,6 +80,17 @@ void SNPBridge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
 #endif
 
     computeLinkCounts(var1, var2);
+#ifdef DEBUG
+    cerr << "Linkcounts: ";
+    for (int i = 0; i < _linkCounts.size(); ++i)
+    {
+      for (int j = 0; j < _linkCounts[i].size(); ++j)
+      {
+        cerr << "(" << i <<"-" << j << "=" << _linkCounts[i][j] << ") ";
+      }
+    }
+    cerr << endl;
+#endif
 
     for (int a1 = 1; a1 < var1.alleles.size(); ++a1)
     {
@@ -89,18 +100,13 @@ void SNPBridge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
         // of in loop....
         Phase phase = phaseRelation(var1, a1, var2, a2);
 
-        if (phase == GT_AND)
+        if (phase != GT_OTHER)
         {
-          makeBridge(a1, a2);
+          makeBridge(a1, a2, phase);
           // we can get away with breaking here (and below) because results
           // mutually exclusive (see simplifying assumption in
           // phaseRelation()).  So as soon as we see a GT_AND or
           // GT_XOR, then everything else must be GT_OTHER
-          break;
-        }
-        else if (phase == GT_XOR)
-        {
-          makeBridge(a1, 0);
           break;
         }
         else
@@ -125,10 +131,10 @@ void SNPBridge::processGraph(VG* vg, VariantCallFile* vcf, int offset,
   }
 }
 
-void SNPBridge::makeBridge(int allele1, int allele2)
+void SNPBridge::makeBridge(int allele1, int allele2, Phase phase)
 {
 #ifdef DEBUG
-  cerr << allele1 << " UNC " << allele2 << " detected at "
+  cerr << allele1 << " " << phase2str(phase) << " " << allele2 << " detected at "
        << _gv1.getVariant().position << " ";
   for (int i = 0; i < _linkCounts.size(); ++i)
   {
@@ -143,7 +149,9 @@ void SNPBridge::makeBridge(int allele1, int allele2)
 #endif
 
   Node* node1 = _gv1.getGraphAllele(allele1).back();
+  Node* ref1 = _gv1.getGraphAllele(0).back();
   Node* node2 = _gv2.getGraphAllele(allele2).front();
+  Node* ref2 = _gv2.getGraphAllele(0).front();
 
   // note we don't use references here because they get altered by
   // calls to create and destroy.
@@ -151,9 +159,10 @@ void SNPBridge::makeBridge(int allele1, int allele2)
   vector<pair<int64_t, bool> > inEdges2 = _vg->edges_on_start[node2->id()];
 
   // make sure there's no other way out of node1 but the
-  // new bridge that we'll add
+  // new bridges that we'll add
   for (auto p : outEdges1)
   {
+    
 #ifdef DEBUG
     cerr << "destroy1 " << node1->id() << " " << true << ", " << p.first << " " << p.second << endl;
 #endif
@@ -162,29 +171,25 @@ void SNPBridge::makeBridge(int allele1, int allele2)
     assert(edge != NULL);
     _vg->destroy_edge(edge);
   }
-  
-  // if dealting with an alt-alt case, make sure no other
-  // way into second alt than the new bridge we'll add
-  // (for alt-ref case, just delete any edge from prev alt)
-  if (allele2 != 0)
+
+  // make sure there's no other way into node 2 than
+  // the bridges we add
+  for (auto p : inEdges2)
   {
-    for (auto p : inEdges2)
-    {
 #ifdef DEBUG
-      cerr << "destroy2 " << p.first << " " << !p.second << ", " << node2->id() << " " << false << endl;
+    cerr << "destroy2 " << p.first << " " << !p.second << ", " << node2->id() << " " << false << endl;
 #endif
-      Edge* edge = _vg->get_edge(NodeSide(p.first, !p.second),
-                                 NodeSide(node2->id(), false));
-      if (p.first == node1->id())
-      {
-        // should have been deleted above
-        assert(edge == NULL);
-      }
-      else
-      {
-        assert(edge != NULL);
-        _vg->destroy_edge(edge);
-      }
+    Edge* edge = _vg->get_edge(NodeSide(p.first, !p.second),
+                               NodeSide(node2->id(), false));
+    if (p.first == node1->id())
+    {
+      // should have been deleted above
+      assert(edge == NULL);
+    }
+    else
+    {
+      assert(edge != NULL);
+      _vg->destroy_edge(edge);
     }
   }
 
@@ -195,18 +200,37 @@ void SNPBridge::makeBridge(int allele1, int allele2)
   _gv1.getReferencePathTo(_gv2, refPath);
 
   // if there's no path, we assume the variants are directly adjacent
-  // and just stick and edge between them
+  // and just stick edges between them
   if (refPath.empty())
   {
-    _vg->create_edge(node1, node2, false, false);
+    if (phase == GT_AND || phase == GT_FROM_REF || phase == GT_TO_REF)
+    {
+      _vg->create_edge(node1, node2, false, false);
 #ifdef DEBUG
-    cerr << "create " << node1->id() << ", " << node2->id() << endl;
+      cerr << "create adj alt-alt " << node1->id() << ", " << node2->id() << endl;
 #endif
+    }
+    if (phase == GT_FROM_REF || phase == GT_XOR)
+    {
+      _vg->create_edge(ref1, node2, false, false);
+#ifdef DEBUG
+      cerr << "create adj ref-alt " << ref1->id() << ", " << node2->id() << endl;
+#endif
+    }
+    if (phase == GT_TO_REF || phase == GT_XOR)
+    {
+      _vg->create_edge(node1, ref2, false, false);
+#ifdef DEBUG
+      cerr << "create adj alt-ref " << node1->id() << ", " << ref2->id() << endl;
+#endif
+    }
   }
+  
   // otherwise, make a copy of ref path and stick that in between
   else
   {
     Node* prev = node1;
+    Node* refPrev = ref1;
     for (auto refNode : refPath)
     {
       Node* cpyNode = _vg->create_node(refNode->sequence());
@@ -216,11 +240,30 @@ void SNPBridge::makeBridge(int allele1, int allele2)
       cerr << "create " << prev->id() << " -> " << cpyNode->id() << endl;
 #endif
       prev = cpyNode;
+      refPrev = refNode;
     }
-    _vg->create_edge(prev, node2, false, false);
+
+    if (phase == GT_AND || phase == GT_FROM_REF || phase == GT_TO_REF)
+    {
+      _vg->create_edge(prev, node2, false, false);
 #ifdef DEBUG
-    cerr << "create " << prev->id() << ", " << node2->id() << endl;
+      cerr << "create alt-alt " << prev->id() << ", " << node2->id() << endl;
 #endif
+    }
+    if (phase == GT_FROM_REF || phase == GT_XOR)
+    {
+      _vg->create_edge(refPrev, node2, false, false);
+#ifdef DEBUG
+      cerr << "create ref-alt " << refPrev->id() << ", " << node2->id() << endl;
+#endif
+    }
+    if (phase == GT_TO_REF || phase == GT_XOR)
+    {
+      _vg->create_edge(prev, ref2, false, false);
+#ifdef DEBUG
+      cerr << "create alt-ref " << prev->id() << ", " << ref2->id() << endl;
+#endif
+    }
   }
 }
 
@@ -232,40 +275,68 @@ SNPBridge::Phase SNPBridge::phaseRelation(Variant& v1, int allele1,
   // But for now, we only do an all or nothing -- ie
   // the variants are alt-alt only if there isn't a single sample
   // saying otherwise.
+  
+  bool to_ref = _linkCounts[allele1][0] > 0;
+  bool from_ref = _linkCounts[0][allele2] > 0;
+  bool to_alt = _linkCounts[allele1][allele2] > 0;
 
-  // total number of haplos with a1 that also have a2
-  int toAllele2 = _linkCounts[allele1][allele2];;
-  // total number of haplos with a1 that go to ref
-  int toRef = _linkCounts[allele1][0];
-  // total number of implied haplotypes that contain allele1
-  int total = 0;
-  for (int i = 0; i < v2.alleles.size(); ++i)
+  bool to_other_alt = false;
+  for (int i = 1; i < v2.alleles.size(); ++i)
   {
-    total += _linkCounts[allele1][i];
-  }
-
-  if (total < 1)
-  {
-    cerr << "Alternate allele " << allele1 << " never seen in GT for "
-         << "variant " << v1 << endl;
-    // the best we can do is cut path to next alternate.
-    // though really we want to remove such variants
-    // entirely
-    return GT_XOR;
+    if (i != allele2 && _linkCounts[allele1][i] > 0)
+    {
+      to_other_alt = true;
+      break;
+    }
   }
   
-  // so exclusively to allele 2 will be a GT_AND
-  else if (toAllele2 == total)
+  bool from_other_alt = false;
+  for (int i = 1; i < v1.alleles.size(); ++i)
   {
-    return GT_AND;
+    if (i != allele1 && _linkCounts[i][allele2] > 0)
+    {
+      from_other_alt = true;
+      break;
+    }
   }
-  // and exclusive to ref with be a GT_XOR
-  // (Note a simplifiying assumption here in the
-  //  presence of multiple alts.  Don't consider
-  //  cases like never goes to alt2 but can go
-  //  to alt1 or reference)
-  else if (toRef == total)
+
+  // don't handle multi allele cases
+  if (from_other_alt || to_other_alt)
   {
+    return GT_OTHER;
+  }
+  
+  if (to_alt)
+  {
+    if (!from_ref && !to_ref)
+    {
+      return GT_AND;
+    }
+    if (from_ref && !to_ref)
+    {
+      return GT_FROM_REF;
+    }
+    if (!from_ref && to_ref)
+    {
+      return GT_TO_REF;
+    }
+  }
+  else
+  {
+    if (!to_ref)
+    {
+      cerr << "allele 1 " << allele1 << " to ref " << _linkCounts[allele1][0] << " and "
+           << "to_ref " << to_ref << endl;
+      cerr << "Alternate allele " << allele1 << " never seen in GT for "
+           << "variant " << v1 << endl;
+    }
+    if (!from_ref)
+    {
+      cerr << "allele 2 " << allele2 << " from ref " << _linkCounts[0][allele2] << " and "
+           << "from_ref " << from_ref << endl;
+      cerr << "Alternate allele " << allele2 << " never seen in GT for "
+           << "variant " << v2 << endl;
+    }
     return GT_XOR;
   }
   
